@@ -1,0 +1,15 @@
+[Unit]
+Description=卸车数据集指标对比工具
+After=network.target
+
+[Service]
+Type=simple
+User=xyz
+WorkingDirectory=/home/xyz/unload-compare
+ExecStart=/usr/bin/node server.js
+Restart=on-failure
+RestartSec=5
+Environment=PORT=3000
+
+[Install]
+WantedBy=multi-user.target

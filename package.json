@@ -1,0 +1,13 @@
+{
+  "name": "unload-compare",
+  "version": "1.0.0",
+  "description": "卸车数据集指标对比工具",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^9.6.0",
+    "express": "^4.19.0"
+  }
+}
