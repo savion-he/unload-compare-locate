@@ -53,6 +53,43 @@ const CPU_OPTIONS = ["i9-13900K","i9-14900","自定义"];
 const GPU_OPTIONS = ["RTX 4060 Ti","RTX 5060","自定义"];
 const C = { green:"#3B6D11", red:"#A32D2D", gray:"#888780", border:"#d3d1c7", bg:"#f5f5f3", card:"#fff", sub:"#f1efe8", text:"#1a1a18", muted:"#888780", code:"#b4b2a9" };
 
+const SORT_OPTIONS = [
+  { key: "savedAt_desc", label: "入库时间 ↓" },
+  { key: "savedAt_asc",  label: "入库时间 ↑" },
+  { key: "maxVer_desc",  label: "Max 版本 ↓" },
+  { key: "maxVer_asc",   label: "Max 版本 ↑" },
+  { key: "mapVer_desc",  label: "标图版本 ↓" },
+  { key: "mapVer_asc",   label: "标图版本 ↑" },
+];
+
+function sortRecords(recs, sortKey) {
+  const [field, dir] = sortKey.split("_");
+  const asc = dir === "asc";
+  return [...recs].sort((a, b) => {
+    const va = field === "savedAt" ? (a.savedAt||"") : field === "maxVer" ? (a.env.maxVer||"") : (a.env.mapVer||"");
+    const vb = field === "savedAt" ? (b.savedAt||"") : field === "maxVer" ? (b.env.maxVer||"") : (b.env.mapVer||"");
+    if (!va && vb) return 1;
+    if (va && !vb) return -1;
+    const cmp = va < vb ? -1 : va > vb ? 1 : 0;
+    return asc ? cmp : -cmp;
+  });
+}
+
+function SortControl({ value, onChange }) {
+  return (
+    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}>
+      <span style={{fontSize:12,color:C.muted,flexShrink:0}}>排序</span>
+      <div style={{position:"relative",display:"inline-flex",alignItems:"center"}}>
+        <select value={value} onChange={e=>onChange(e.target.value)}
+          style={{fontSize:12,border:`0.5px solid ${C.border}`,borderRadius:6,padding:"4px 32px 4px 10px",outline:"none",background:"#fafaf8",color:C.text,cursor:"pointer",appearance:"none",WebkitAppearance:"none",MozAppearance:"none"}}>
+          {SORT_OPTIONS.map(o=><option key={o.key} value={o.key}>{o.label}</option>)}
+        </select>
+        <span style={{position:"absolute",right:8,top:"50%",transform:"translateY(-50%)",pointerEvents:"none",fontSize:11,color:C.text,lineHeight:1}}>▼</span>
+      </div>
+    </div>
+  );
+}
+
 function parseData(raw) {
   const result = {};
   const lines = raw.split(/[\n,]+/).map(s => s.trim()).filter(Boolean);
@@ -119,11 +156,14 @@ function SelectOrInput({ options, value, onChange, placeholder }) {
   };
   return (
     <div style={{display:"flex",gap:6,flex:1}}>
-      <select value={showCustom?"自定义":value} onChange={onSel}
-        style={{flex:showCustom?"0 0 110px":1,fontSize:12,border:`0.5px solid ${C.border}`,borderRadius:6,padding:"4px 8px",outline:"none",background:"#fafaf8",color:C.text,cursor:"pointer"}}>
-        <option value="">请选择</option>
-        {options.map(o=><option key={o} value={o}>{o}</option>)}
-      </select>
+      <div style={{position:"relative",display:"inline-flex",alignItems:"center",flex:showCustom?"0 0 110px":1}}>
+        <select value={showCustom?"自定义":value} onChange={onSel}
+          style={{width:"100%",fontSize:12,border:`0.5px solid ${C.border}`,borderRadius:6,padding:"4px 28px 4px 8px",outline:"none",background:"#fafaf8",color:C.text,cursor:"pointer",appearance:"none",WebkitAppearance:"none",MozAppearance:"none"}}>
+          <option value="">请选择</option>
+          {options.map(o=><option key={o} value={o}>{o}</option>)}
+        </select>
+        <span style={{position:"absolute",right:7,top:"50%",transform:"translateY(-50%)",pointerEvents:"none",fontSize:16,color:C.text,lineHeight:1}}>▼</span>
+      </div>
       {showCustom&&<input value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder}
         style={{flex:1,fontSize:12,border:`0.5px solid ${C.border}`,borderRadius:6,padding:"4px 8px",outline:"none",background:"#fafaf8",color:C.text}}/>}
     </div>
@@ -399,6 +439,7 @@ function AddPanel({ onSave }) {
 function ComparePanel({ records, loading }) {
   const [robotFilter, setRobotFilter] = useState("Rocky One");
   const [placeFilter, setPlaceFilter] = useState("全部放置");
+  const [sortKey, setSortKey] = useState("savedAt_desc");
   const [selA, setSelA] = useState(null);
   const [selB, setSelB] = useState(null);
   const [result, setResult] = useState(null);
@@ -436,9 +477,10 @@ function ComparePanel({ records, loading }) {
           </button>
         ))}
       </div>
+      <SortControl value={sortKey} onChange={setSortKey}/>
       <div style={{fontSize:12,color:C.muted,marginBottom:10}}>点击卡片上的按钮分别选择基准版本和测试版本</div>
       <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:16}}>
-        {records.filter(r=>r.env.robotModel===robotFilter&&(placeFilter==="全部放置"||r.env.placeType===placeFilter)).map(rec=><RecordCard key={rec.id} rec={rec} onSelect={onSelect} selA={selA} selB={selB}/>)}
+        {sortRecords(records.filter(r=>r.env.robotModel===robotFilter&&(placeFilter==="全部放置"||r.env.placeType===placeFilter)),sortKey).map(rec=><RecordCard key={rec.id} rec={rec} onSelect={onSelect} selA={selA} selB={selB}/>)}
       </div>
 
       {hwDiff&&<div style={{background:"#FAEEDA",color:"#854F0B",borderRadius:8,padding:"8px 14px",fontSize:12,marginBottom:10}}>⚠ 硬件环境不一致（{buildHwLabel(selA.env)} vs {buildHwLabel(selB.env)}），耗时类指标变化可能受硬件影响。</div>}
@@ -702,9 +744,10 @@ function TrendPanel({ records, loading }) {
 function RecordsPanel({ records, onDelete, onEdit, loading }) {
   const [filter, setFilter] = React.useState("全部");
   const [placeFilter, setPlaceFilter] = React.useState("全部放置");
+  const [sortKey, setSortKey] = React.useState("savedAt_desc");
   if (loading) return <div style={{textAlign:"center",padding:"3rem",color:C.muted,display:"flex",alignItems:"center",justifyContent:"center",gap:10}}><Spinner/> 加载中...</div>;
   if (records.length===0) return <div style={{textAlign:"center",padding:"3rem",color:C.muted,fontSize:13}}>暂无记录</div>;
-  const filtered = records.filter(r=>(filter==="全部"||r.env.robotModel===filter)&&(placeFilter==="全部放置"||r.env.placeType===placeFilter));
+  const filtered = sortRecords(records.filter(r=>(filter==="全部"||r.env.robotModel===filter)&&(placeFilter==="全部放置"||r.env.placeType===placeFilter)), sortKey);
   return (
     <div>
       <div style={{display:"flex",gap:8,marginBottom:8,flexWrap:"wrap"}}>
@@ -723,6 +766,7 @@ function RecordsPanel({ records, onDelete, onEdit, loading }) {
           </button>
         ))}
       </div>
+      <SortControl value={sortKey} onChange={setSortKey}/>
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:12}}>
         {filtered.map(rec=><RecordCard key={rec.id} rec={rec} onDelete={onDelete} onEdit={onEdit}/>)}
       </div>
